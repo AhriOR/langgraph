@@ -46,16 +46,28 @@ agent_excutor=create_react_agent(llm,tools,prompt=prompt)
 
 import operator
 from typing import Annotated, List, Tuple, TypedDict, Union
+from pydantic import BaseModel, Field, model_validator
 
 
 #定义TypedDict类PlanExecute,用于存储输入、计划、过去的步骤和响应
-class PlanExecute(TypedDict):
+class PlanExecute(BaseModel):
     input: str
-    plan: List[str] #任务列表
-    past_steps : Annotated[List[Tuple],operator.add] #返回列表合并
-    response : str
+    plan: List[str]  # 任务列表
+    past_steps: Annotated[List[Tuple], operator.add]  # 带合并逻辑的步骤列表
+    response: str = ""  # 可选字段，可设默认值
 
-from pydantic import BaseModel,Field
+    @model_validator(mode="before")
+    def merge_past_steps(cls, values):
+        """初始化时自动合并past_steps（示例逻辑，可根据需求修改）"""
+        past_steps = values.get("past_steps", [])
+        # 假设需要确保past_steps是列表，且每个元素都是元组
+        if not isinstance(past_steps, list):
+            raise ValueError("past_steps must be a list")
+        for step in past_steps:
+            if not isinstance(step, tuple):
+                raise ValueError("each element in past_steps must be a tuple")
+        return values
+
 
 #定义Plan模型类，用于描述未来要执行的计划
 class Plan(BaseModel):
