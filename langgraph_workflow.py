@@ -52,7 +52,7 @@ from pydantic import BaseModel, Field, model_validator
 #定义TypedDict类PlanExecute,用于存储输入、计划、过去的步骤和响应
 class PlanExecute(BaseModel):
     input: str
-    plan: List[str]  # 任务列表
+    plan: List[str] = Field(default_factory=list) # 任务列表
     past_steps: Annotated[List[Tuple], operator.add]  # 带合并逻辑的步骤列表
     response: str = ""  # 可选字段，可设默认值
 
@@ -127,7 +127,7 @@ async def main():
 
     #做计划
     async def plan_step(state:PlanExecute):
-        plan = await planner.ainvoke({'messages':state["input"]})
+        plan = await planner.ainvoke({'messages':state.input})
         print(plan)
         json_str=plan.content.strip()
         try:
@@ -140,7 +140,7 @@ async def main():
 
     #执行步骤
     async def execute_step(state:PlanExecute):
-        plan=state["plan"]
+        plan=state.plan
         plan_str="\n".join(f"{i+1}. {step} " for i,step in enumerate(plan))
         task=plan[0]
         task_formatted=f"""对于以下计划：
@@ -149,11 +149,11 @@ async def main():
             {'messages':task_formatted},
         )
         return {
-            "past_steps":state["past_steps"]+[(task,agent_response["messages"][-1].content)],
+            "past_steps":state.past_steps+[(task,agent_response["messages"][-1].content)],
         }
     #定义函数判断是否结束
     async def replan_step(state:PlanExecute):
-        output = await replanner.ainvoke({"input":state["input"],"plan":state["plan"],"past_steps":state["past_steps"]})
+        output = await replanner.ainvoke({"input":state.input,"plan":state.plan,"past_steps":state.past_steps})
         output_msg=output.content.strip()
         print(output_msg)
         try:
@@ -176,7 +176,7 @@ async def main():
             return {"response": "信息处理异常，无法生成最终答案"}
 
     def should_end(state:PlanExecute) -> Literal['agent',"__end__"]:
-        if "response" in state and state["response"]:
+        if "response" in state and state.response:
             return "__end__"
         else:
             return "agent"
